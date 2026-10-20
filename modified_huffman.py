@@ -84,10 +84,28 @@ def Huffman_Decompress(compressed: str):
 
 codes_list = []
 
-choice = int(input("1. Compress\n2. Decompress "))
+
+import os
+folder_path = r"C:\Users\Youssef Ansary\Desktop\College\Assignments\Info and Compression"
+file_path = os.path.join(folder_path, "input.txt")
+
+choice = int(input("1. Compress\n2. Decompress: "))
+
 if choice == 1:
-    user_input = input("Enter The string you want to compress ")
-    print(Huffman_Compress(user_input))
+    with open(file_path, "r", encoding="utf-8") as f:
+        file_content = f.read()
+
+    compressed_bits = Huffman_Compress(file_content)
+
+    output_text = f"Compressed string :\n{compressed_bits}"
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(output_text)
+
+    print("File updated successfully.")
+    
 else:
-    user_input = input("Enter the string you want to decompress ")
-    print(Huffman_Decompress(user_input))
+    with open(file_path, "r", encoding="utf-8") as f:
+        file_content = f.read()
+    print("Decompressed output:")
+    print(Huffman_Decompress(file_content))
