@@ -2,6 +2,7 @@ class Node:
     def __init__(self, Symbol: str, Frequency: int):
         self.Symbol = Symbol
         self.Frequency = Frequency
+        self.code = None
         self.left_child: Node = None
         self.right_child: Node = None
 
@@ -39,23 +40,54 @@ def Huffman_Tree_Construction(user_input: str):
     root: Node = freq_table[0]
 
     return root
-    
-def preorder(root: Node, path: str = ' '):
+#preorder traversal through the tree
+def codes_table_construction(root: Node, path: str = ' '):
     if root is None:
         return
 
     if root.left_child is None and root.right_child is None:
-        print(f"Symbol: {root.Symbol}, Code: {path}")
+        root.code = path
+        codes_list.append(root)
         return
     
-    preorder(root.left_child, path + '0')
-    preorder(root.right_child, path + '1')
+    codes_table_construction(root.left_child, path + '0')
+    codes_table_construction(root.right_child, path + '1')
 
-def Huffman_Compress():
-    pass
-def Huffman_Decompress():
-    pass
 
-user_input = input("Enter your string ")
-table = Huffman_Tree_Construction(user_input)
-preorder(table)
+def Huffman_Compress(user_input: str):
+    root = Huffman_Tree_Construction(user_input)
+    codes_table_construction(root)
+    compressed: str = ""
+
+    for char in user_input:
+        for node in codes_list:
+            if char == node.Symbol:
+                compressed += node.code
+
+    return compressed
+
+def Huffman_Decompress(compressed: str):
+    decompressed: str = ""
+    current_code: str = ""
+
+    for bit in compressed:
+        current_code += bit
+
+        for node in codes_list:
+            if current_code == node.code:
+                decompressed += node.Symbol
+                current_code = ""
+                break
+
+    return decompressed
+
+
+codes_list = []
+
+choice = int(input("1. Compress\n2. Decompress "))
+if choice == 1:
+    user_input = input("Enter The string you want to compress ")
+    print(Huffman_Compress(user_input))
+else:
+    user_input = input("Enter the string you want to decompress ")
+    print(Huffman_Decompress(user_input))
