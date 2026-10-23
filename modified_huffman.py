@@ -1,3 +1,5 @@
+import os, json, math, struct
+
 class Node:
     def __init__(self, Symbol: str, Frequency: int):
         self.Symbol = Symbol
@@ -84,10 +86,10 @@ def others_codes_construction(others_characters: list):
 
     return codes
 
-def Huffman_Compress(user_input: str):
+def Huffman_Compress(user_input: str, threshold: int):
 
 
-    root, others_characters = Huffman_Tree_Construction(user_input)
+    root, others_characters = Huffman_Tree_Construction(user_input, threshold)
     others_codes = others_codes_construction(others_characters)
     codes_list = codes_table_construction(root)
     
@@ -114,7 +116,8 @@ def Huffman_Compress(user_input: str):
     return {
         "codes": codes_table,
         "compressed": compressed,
-        "others_codes": others_codes
+        "others_codes": others_codes,
+        "others_characters": others_characters
     }
 
 def Huffman_Decompress(compressed, codes_table, others_codes):
@@ -128,8 +131,10 @@ def Huffman_Decompress(compressed, codes_table, others_codes):
 
     for symbol, code in others_codes.items():
         reverse_others_codes[code] = symbol
-
-    others_bits = max(1, math.ceil(math.log2(len(others_codes))))
+   
+    others_bits = 0
+    if others_codes:
+        others_bits = max(1, math.ceil(math.log2(len(others_codes))))
 
 
     decompressed = ""
@@ -144,24 +149,13 @@ def Huffman_Decompress(compressed, codes_table, others_codes):
             symbol = reverse_codes[current_code]
 
             if symbol == "OTHERS":
-                fixed_code = compressed[i:i + others_bits]
+                fixed_code = compressed[i: i + others_bits]
                 i += others_bits
                 decompressed += reverse_others_codes[fixed_code]
             else:
                 decompressed += symbol
 
             current_code = ""
-
-
-
-    # for bit in compressed:
-    #     current_code += bit
-
-    #     if current_code in reverse_codes:
-    #         decompressed += reverse_codes[current_code]
-    #         current_code = ""
-            
-
 
     return decompressed
 
@@ -189,23 +183,15 @@ def unpack_bits(packed: bytes, bit_length: int) -> str:
     return bits[:bit_length]
 
 
-def print_compression_statistics(original: str, compressed: str, file_path: str):
+def print_compression_statistics(original: str, file_path: str):
 
     original_size = len(original.encode("utf-8")) * 8
 
-    # Theoretical size of compressed bits
-    compressed_bits_size = len(compressed)
-
-    # Actual output file size in bits, including the codes table
     actual_file_size = os.path.getsize(file_path) * 8
 
     print("\n--- Compression Statistics ---")
     print(f"Original size: {original_size} bits")
-    print(f"Compressed data size: {compressed_bits_size} bits")
     print(f"Actual compressed file size: {actual_file_size} bits")
-
-
-import os, json, math, struct
 
 
 folder_path = r"/home/mido/Documents/"
@@ -222,47 +208,43 @@ if choice == 1:
 
     packed, bit_length = pack_bits(data["compressed"])
 
-    # convert codes table to bytes then calc it's size and store in the header of the file
-    codes_table_bytes = json.dumps(data["codes"]).encode("utf-8")
-    codes_table_length = len(codes_table_bytes)
+    metadata = {
+        "codes": data["codes"],
+        "others_characters": data["others_characters"]
+    }
 
+    metadata_bytes = json.dumps(metadata, ensure_ascii=False, separators=("," , ":")).encode("utf-8")
+    metadata_length = len(metadata_bytes)
 
-    #store the table length and bit length in the header
-    #bit length is used for knowing how many padded bits in the last byte
+    # codes_table_bytes = json.dumps(data["codes"]).encode("utf-8")
+
     with open("compressed.bin", "wb") as f:
-        f.write(struct.pack(">I", codes_table_length))
+        f.write(struct.pack(">I", metadata_length))
         f.write(struct.pack(">I", bit_length))
-        f.write(codes_table_bytes)
+        f.write(metadata_bytes)
         f.write(packed)
 
-        print(repr(codes_table_bytes))
-        print(repr(packed))
-        print(repr(bit_length))
-
-    print_compression_statistics(file_content, data["compressed"], "compressed.bin")
+    print_compression_statistics(file_content, "compressed.bin")
     print("File updated successfully.")
     
 else:
     with open("compressed.bin", "rb") as f:
-        
-        #read the header
-        codes_table_length = struct.unpack(">I", f.read(4))[0]
-        bit_length = struct.unpack(">I", f.read(4))[0]
 
-        #read the huffman table
-        codes_table_bytes = f.read(codes_table_length)
-        codes_table = json.loads(codes_table_bytes.decode("utf-8"))
+        metadata_length = struct.unpack(">I", f.read(4))[0]
+        bit_length = struct.unpack(">I", f.read(4))[0]
+        
+        metadata_bytes = f.read(metadata_length)
+        metadata = json.loads(metadata_bytes.decode("utf-8"))
+
+        codes_table = metadata["codes"]
+        others_characters = metadata["others_characters"]
+
+        others_codes = others_codes_construction(others_characters)
 
         packed = f.read()
 
-
-        print("Table length:", codes_table_length)
-        print("Meaningful bits:", bit_length)
-        print("Codes table:", codes_table)
-        print("Packed data:", packed)
-
     actual_unpacked_bits = unpack_bits(packed, bit_length)
-    decompressed_text = Huffman_Decompress(actual_unpacked_bits, codes_table)
+    decompressed_text = Huffman_Decompress(actual_unpacked_bits, codes_table, others_codes)
 
 
     output_path = os.path.join(folder_path, "decompressed.txt")
